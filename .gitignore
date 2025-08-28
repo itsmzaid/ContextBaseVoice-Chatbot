@@ -1,0 +1,79 @@
+# ========================
+# Frontend
+# ========================
+
+# Logs
+Frontend/logs
+Frontend/*.log
+Frontend/npm-debug.log*
+Frontend/yarn-debug.log*
+Frontend/yarn-error.log*
+Frontend/pnpm-debug.log*
+Frontend/lerna-debug.log*
+
+# Dependencies
+Frontend/node_modules/
+
+# Build
+Frontend/dist/
+Frontend/dist-ssr/
+
+# Env
+Frontend/.env
+Frontend/.env.local
+
+# Editor / OS
+Frontend/.vscode/*
+!Frontend/.vscode/extensions.json
+Frontend/.idea/
+Frontend/.DS_Store
+Frontend/*.suo
+Frontend/*.ntvs*
+Frontend/*.njsproj
+Frontend/*.sln
+Frontend/*.sw?
+
+# ========================
+# Backend
+# ========================
+
+# Logs
+Backend/logs
+Backend/*.log
+Backend/npm-debug.log*
+Backend/yarn-debug.log*
+Backend/yarn-error.log*
+Backend/pnpm-debug.log*
+Backend/lerna-debug.log*
+
+# Dependencies
+Backend/node_modules/
+
+# Build
+Backend/dist/
+Backend/dist-ssr/
+
+# Env
+Backend/.env
+
+# Editor / OS
+Backend/.vscode/*
+!Backend/.vscode/extensions.json
+Backend/.idea/
+Backend/.DS_Store
+Backend/*.suo
+Backend/*.ntvs*
+Backend/*.njsproj
+Backend/*.sln
+Backend/*.sw?
+
+# Storage (Backend specific)
+Backend/storage/logs/
+Backend/storage/audio/
+Backend/storage/audio_chunks/
+Backend/storage/audio_chunks_pre_composed/
+Backend/storage/debug_audio/
+Backend/storage/uploads/
+
+# Temporary
+Backend/temp/
