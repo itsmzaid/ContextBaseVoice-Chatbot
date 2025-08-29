@@ -10,7 +10,7 @@ import {
 export const voiceBotApi = createApi({
   reducerPath: "voiceBotApi",
   baseQuery: axiosBaseQuery({
-    baseUrl: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+    baseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api",
   }),
   tagTypes: ["User", "Agent", "Session", "Message"],
   endpoints: (builder) => ({

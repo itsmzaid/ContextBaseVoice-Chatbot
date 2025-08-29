@@ -35,15 +35,8 @@ const getIndex = () => {
 // Initialize Pinecone index
 export const initializePinecone = async () => {
   try {
-    console.log("Initializing Pinecone...");
-    console.log("Attempting to connect to Pinecone...");
-
     const index = getIndex();
-    console.log("Pinecone index initialized successfully");
-    console.log("Index details:", {
-      name: process.env.PINECONE_INDEX_NAME,
-      environment: process.env.PINECONE_ENVIRONMENT,
-    });
+
     return index;
   } catch (error) {
     console.error("Error initializing Pinecone:", error);
@@ -59,23 +52,9 @@ export const initializePinecone = async () => {
 // Upsert vectors to Pinecone
 export const upsertVectors = async (vectors) => {
   try {
-    console.log("Attempting to upsert vectors to Pinecone...");
-    console.log("Vector details:", {
-      count: vectors.length,
-      sampleVector: vectors[0]
-        ? {
-            id: vectors[0].id,
-            valuesLength: vectors[0].values?.length,
-            metadata: vectors[0].metadata,
-          }
-        : "No vectors",
-    });
-
     const index = getIndex();
-    console.log("Got Pinecone index, attempting upsert...");
 
     const upsertResponse = await index.upsert(vectors);
-    console.log(`Successfully upserted ${vectors.length} vectors to Pinecone`);
     return upsertResponse;
   } catch (error) {
     console.error("Error upserting vectors to Pinecone:", error);
@@ -100,7 +79,6 @@ export const queryVectors = async (queryVector, topK = 5, filter = {}) => {
       filter: filter,
     });
 
-    console.log(`Queried Pinecone for ${topK} similar vectors`);
     return queryResponse.matches;
   } catch (error) {
     console.error("Error querying vectors from Pinecone:", error);
@@ -113,7 +91,6 @@ export const deleteVectors = async (vectorIds) => {
   try {
     const index = getIndex();
     const deleteResponse = await index.deleteMany(vectorIds);
-    console.log(`Deleted ${vectorIds.length} vectors from Pinecone`);
     return deleteResponse;
   } catch (error) {
     console.error("Error deleting vectors from Pinecone:", error);
@@ -141,7 +118,6 @@ export const updateVectorMetadata = async (vectorId, metadata) => {
       id: vectorId,
       setMetadata: metadata,
     });
-    console.log(`Updated metadata for vector: ${vectorId}`);
     return updateResponse;
   } catch (error) {
     console.error("Error updating vector metadata in Pinecone:", error);
@@ -154,7 +130,6 @@ export const checkIndexStatus = async () => {
   try {
     const index = getIndex();
     const stats = await index.describeIndexStats();
-    console.log("Pinecone index status:", stats);
     return stats;
   } catch (error) {
     console.error("Error checking Pinecone index status:", error);

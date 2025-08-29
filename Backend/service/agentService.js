@@ -84,12 +84,6 @@ const processDocument = async (agentId, file) => {
       throw new Error("No text content extracted from document");
     }
 
-    console.log("✅ Text extraction successful:", {
-      fileName: file.originalname,
-      characterCount: contentText.length,
-      sampleText: contentText.substring(0, 100) + "...",
-    });
-
     // Save file to disk since we're using memory storage
     const fs = await import("fs");
     const path = await import("path");
@@ -118,22 +112,11 @@ const processDocument = async (agentId, file) => {
     });
 
     // Create embeddings for document chunks
-    console.log("✂️ Splitting text into chunks...");
     const chunks = splitTextIntoChunks(contentText);
-    console.log("✅ Text chunking completed:", {
-      chunkCount: chunks.length,
-      sampleChunk: chunks[0]?.substring(0, 50) + "...",
-    });
 
-    console.log("🧠 Starting embedding generation...");
     const embeddings = await createEmbeddings(chunks, document.id);
-    console.log("✅ Embedding generation completed:", {
-      embeddingCount: embeddings.length,
-      documentId: document.id,
-    });
 
     // Save embedding records to database
-    console.log("💾 Saving embedding records to database...");
     for (let i = 0; i < embeddings.length; i++) {
       const embeddingData = embeddings[i];
       await sequelize.models.Embedding.create({
@@ -145,17 +128,11 @@ const processDocument = async (agentId, file) => {
           text_length: embeddingData.text.length,
         },
       });
-      console.log(`✅ Saved embedding ${i + 1}/${embeddings.length}`);
     }
 
-    console.log("🎉 Document processing completed successfully:", {
-      fileName: file.originalname,
-      documentId: document.id,
-      embeddingCount: embeddings.length,
-    });
     return document;
   } catch (error) {
-    console.error("❌ Error processing document:", {
+    console.error("Error processing document:", {
       fileName: file.originalname,
       error: error.message,
       stack: error.stack,

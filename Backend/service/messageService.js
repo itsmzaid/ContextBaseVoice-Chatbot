@@ -22,30 +22,13 @@ export const createMessage = async (messageData, audioFile = null) => {
   // Handle audio file if provided
   if (audioFile) {
     try {
-      console.log("🎵 Processing audio file...");
-      console.log("📁 Audio file details:", {
-        originalname: audioFile.originalname,
-        mimetype: audioFile.mimetype,
-        size: audioFile.size,
-        bufferLength: audioFile.buffer?.length,
-      });
-
-      // Convert speech to text
-      console.log("🎤 Converting speech to text...");
       const transcribedText = await speechToText(audioFile);
       processedText = transcribedText;
 
       // Save audio file
-      console.log("💾 Saving audio file...");
       audioUrl = await saveAudioFile(audioFile, session_id);
-
-      console.log("✅ Audio processing completed successfully:", {
-        fileName: audioFile.originalname,
-        transcribedText: transcribedText.substring(0, 50) + "...",
-        audioUrl: audioUrl,
-      });
     } catch (error) {
-      console.error("❌ Error processing audio:", {
+      console.error("Error processing audio:", {
         fileName: audioFile.originalname,
         error: error.message,
         stack: error.stack,
@@ -65,20 +48,12 @@ export const createMessage = async (messageData, audioFile = null) => {
   // If this is a user message, generate bot response
   if (role === "user") {
     try {
-      console.log(
-        `Generating bot response for: "${processedText.substring(0, 50)}..."`
-      );
-
       // Generate bot response
       const botResponse = await generateBotResponse(session_id, processedText);
 
       // Convert bot response to speech
       const { audioBuffer: botAudioBuffer, audioFilePath: botAudioUrl } =
         await textToSpeech(botResponse);
-
-      console.log(
-        `Bot response generated: "${botResponse.substring(0, 50)}..."`
-      );
 
       // Create bot message
       const botMessage = await sequelize.models.Message.create({
@@ -117,29 +92,21 @@ export const createMessage = async (messageData, audioFile = null) => {
 
 export const getSessionMessages = async (sessionId) => {
   try {
-    console.log(`Fetching messages for session: ${sessionId}`);
-
-    const session = await sequelize.models.Session.findByPk(sessionId, {
-      include: [
-        {
-          model: sequelize.models.Message,
-          as: "messages",
-          order: [["created_at", "ASC"]],
-        },
-      ],
-    });
+    // First get the session to verify it exists
+    const session = await sequelize.models.Session.findByPk(sessionId);
 
     if (!session) {
       console.log(`Session not found: ${sessionId}`);
       throw new ApiError(404, `Session not found with ID: ${sessionId}`);
     }
 
-    console.log(
-      `Found ${
-        session.messages?.length || 0
-      } messages for session: ${sessionId}`
-    );
-    return session.messages || [];
+    // Then get messages separately with proper ordering
+    const messages = await sequelize.models.Message.findAll({
+      where: { session_id: sessionId },
+      order: [["created_at", "ASC"]],
+    });
+
+    return messages;
   } catch (error) {
     console.error(`Error fetching session messages for ${sessionId}:`, error);
     if (error instanceof ApiError) {

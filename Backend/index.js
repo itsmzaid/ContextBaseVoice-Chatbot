@@ -49,7 +49,6 @@ voiceWebSocketService.startCleanupTimer();
 // Start the HTTP server
 server.listen(port, () => {
   console.log("HTTP Server listening on port", port);
-  console.log("API available at http://localhost:" + port);
   console.log("WebSocket available at ws://localhost:" + port);
 });
 
@@ -58,11 +57,9 @@ const initializeServices = async () => {
   try {
     // Initialize database connection
     await sequelize.authenticate();
-    console.log("Database connection has been established successfully.");
 
     // Initialize Pinecone
     await initializePinecone();
-    console.log("All services initialized successfully.");
   } catch (error) {
     console.error("Error initializing services:", error);
     process.exit(1);

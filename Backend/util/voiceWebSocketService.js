@@ -26,8 +26,6 @@ class VoiceWebSocketService {
     this.wss = new WebSocketServer({ server });
 
     this.wss.on("connection", (ws, req) => {
-      console.log("New WebSocket connection established");
-
       // Initialize client data
       const clientId = this.generateClientId();
       this.clients.set(clientId, {
@@ -138,10 +136,6 @@ class VoiceWebSocketService {
           message: "Voice session started successfully",
         })
       );
-
-      console.log(
-        `🎤 Voice session started for client ${clientId}, session ${sessionId}`
-      );
     } catch (error) {
       console.error("Error starting voice session:", error);
       client.ws.send(
@@ -220,10 +214,6 @@ class VoiceWebSocketService {
       const chunkPath = path.join(clientDir, chunkFileName);
       fs.writeFileSync(chunkPath, audioBuffer);
 
-      console.log(
-        `Saved audio chunk: ${chunkFileName} (${audioBuffer.length} bytes)`
-      );
-
       // Save combined audio (all chunks so far) - for testing
       const combinedFileName = `complete_audio_${Date.now()}.webm`;
       const combinedPath = path.join(clientDir, combinedFileName);
@@ -232,19 +222,12 @@ class VoiceWebSocketService {
       const combinedBuffer = Buffer.concat(client.audioChunks);
       fs.writeFileSync(combinedPath, combinedBuffer);
 
-      console.log(
-        `Saved complete audio: ${combinedFileName} (${combinedBuffer.length} bytes) - ${client.audioChunks.length} chunks combined`
-      );
-
       // Also save a final complete audio when recording stops
       if (chunkIndex >= 3) {
         // Save after 3+ chunks for testing
         const finalFileName = `final_complete_${Date.now()}.webm`;
         const finalPath = path.join(clientDir, finalFileName);
         fs.writeFileSync(finalPath, combinedBuffer);
-        console.log(
-          `Saved final complete audio: ${finalFileName} (${combinedBuffer.length} bytes)`
-        );
       }
     } catch (error) {
       console.error("Error saving audio chunk:", error);
@@ -283,11 +266,6 @@ class VoiceWebSocketService {
       // Combine all chunks
       const combinedBuffer = Buffer.concat(client.audioChunks);
       fs.writeFileSync(finalPath, combinedBuffer);
-
-      console.log(
-        `FINAL COMPLETE AUDIO SAVED: ${finalFileName} (${combinedBuffer.length} bytes) - ${client.audioChunks.length} chunks combined`
-      );
-      console.log(`File location: ${finalPath}`);
     } catch (error) {
       console.error("Error saving final complete audio:", error);
     }
@@ -326,10 +304,6 @@ class VoiceWebSocketService {
     if (!client || client.audioChunks.length === 0) return;
 
     try {
-      console.log(
-        `Processing ${client.audioChunks.length} audio chunks for client ${clientId}`
-      );
-
       // Send processing status
       client.ws.send(
         JSON.stringify({
@@ -360,7 +334,6 @@ class VoiceWebSocketService {
       // Wait for STT to complete
       const transcribedText = await sttPromise;
       const sttTime = Date.now() - startTime;
-      console.log(`STT completed in ${sttTime}ms`);
 
       if (!transcribedText || transcribedText.trim() === "") {
         client.ws.send(
@@ -455,7 +428,6 @@ class VoiceWebSocketService {
           `Dynamic TTS completed in ${processingTime}ms with ${chunkCount} chunks`
         );
       } catch (error) {
-        console.log("Dynamic TTS failed, falling back to sequential TTS");
         const fallbackResult = await textToSpeech(botResponse);
         audioBuffer = fallbackResult.audioBuffer;
         audioFilePath = fallbackResult.audioFilePath;
@@ -482,11 +454,6 @@ class VoiceWebSocketService {
           messageId: botMessage.id,
         })
       );
-
-      console.log(`Voice response sent successfully`);
-      console.log(
-        `Performance: ${processingTime}ms, ${chunkCount} chunks processed`
-      );
     } catch (error) {
       console.error("Error generating bot response:", error);
 
@@ -508,7 +475,6 @@ class VoiceWebSocketService {
     if (!client || !client.sessionId) return;
 
     try {
-      console.log(`Generating ULTRA-FAST AI response for: "${userText}"`);
       const startTime = Date.now();
 
       // Send processing status
@@ -527,7 +493,6 @@ class VoiceWebSocketService {
       const ttsPreparation = await this.prepareTTSOptimization(botResponse);
 
       const llmTime = Date.now() - startTime;
-      console.log(`LLM response generated in ${llmTime}ms: "${botResponse}"`);
 
       // NEW: Parallel database operations + TTS
       const [userMessage, audioResult] = await Promise.all([
@@ -563,7 +528,6 @@ class VoiceWebSocketService {
       );
 
       const totalTime = Date.now() - startTime;
-      console.log(`ULTRA-FAST response completed in ${totalTime}ms`);
       console.log(
         `Performance: LLM=${llmTime}ms, TTS=${audioResult.processingTime}ms`
       );
@@ -579,7 +543,7 @@ class VoiceWebSocketService {
   async prepareTTSOptimization(text) {
     try {
       const wordCount = text.split(/\s+/).length;
-      const optimalChunks = Math.max(1, Math.ceil(wordCount / 20));
+      const optimalChunks = Math.max(1, Math.ceil(wordCount / 10));
       console.log(
         `TTS Preparation: ${wordCount} words, ${optimalChunks} chunks`
       );
@@ -593,15 +557,9 @@ class VoiceWebSocketService {
   // NEW: Generate optimized TTS
   async generateOptimizedTTS(text, preparation) {
     try {
-      console.log(`Starting optimized TTS for ${preparation.wordCount} words`);
-      console.log(`Full text to convert: "${text}"`);
-
       const result = await textToSpeechDynamic(text);
-      console.log(`Optimized TTS completed successfully`);
-      console.log(`Final audio size: ${result.audioBuffer.length} bytes`);
       return result;
     } catch (error) {
-      console.log("Optimized TTS failed, falling back to sequential TTS");
       console.error("TTS Error details:", error);
       const fallbackResult = await textToSpeech(text);
       return fallbackResult;
@@ -631,7 +589,7 @@ class VoiceWebSocketService {
 
     // Log performance stats every 10 requests
     if (this.performanceStats.totalRequests % 10 === 0) {
-      console.log("🚀 Performance Stats:", {
+      console.log("Performance Stats:", {
         totalRequests: this.performanceStats.totalRequests,
         averageResponseTime: `${this.performanceStats.averageResponseTime.toFixed(
           0
@@ -662,7 +620,6 @@ class VoiceWebSocketService {
 
       for (const [clientId, client] of this.clients.entries()) {
         if (now - client.lastActivity > inactiveTimeout) {
-          console.log(`Cleaning up inactive client: ${clientId}`);
           client.ws.close();
           this.cleanupClient(clientId);
         }

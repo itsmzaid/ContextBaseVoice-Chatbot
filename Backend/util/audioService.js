@@ -11,8 +11,6 @@ const openai = new OpenAI({
 
 export const textToSpeech = async (text) => {
   try {
-    console.log("Starting text-to-speech conversion...");
-
     // Generate audio using OpenAI TTS
     const mp3 = await openai.audio.speech.create({
       model: "tts-1-hd",
@@ -38,7 +36,6 @@ export const textToSpeech = async (text) => {
 
     // Return both the audio buffer and the URL path
     const audioUrl = `/storage/audio/${fileName}`;
-    console.log("Text-to-speech successful.");
     return { audioBuffer: buffer, audioFilePath: audioUrl };
   } catch (error) {
     console.error("Error in text-to-speech:", error);
@@ -48,8 +45,6 @@ export const textToSpeech = async (text) => {
 
 export const speechToText = async (audioInput) => {
   try {
-    console.log("Starting speech-to-text conversion...");
-
     let audioBuffer;
     let fileName;
     let mimeType;
@@ -69,12 +64,6 @@ export const speechToText = async (audioInput) => {
       throw new Error("Invalid audio input format");
     }
 
-    console.log("Audio file details:", {
-      fileName,
-      mimeType,
-      bufferLength: audioBuffer.length,
-    });
-
     // Create a proper File object for OpenAI
     const file = new File([audioBuffer], fileName, { type: mimeType });
 
@@ -89,10 +78,6 @@ export const speechToText = async (audioInput) => {
         "This is a clear English conversation. Please transcribe exactly what is spoken without adding or removing words.",
     });
 
-    console.log(
-      "Speech-to-text successful:",
-      transcription.substring(0, 50) + "..."
-    );
     return transcription;
   } catch (error) {
     console.error("Error in speech-to-text:", error);
@@ -109,9 +94,6 @@ export const speechToText = async (audioInput) => {
 // New streaming speech-to-text function
 export const speechToTextStream = async (audioChunks) => {
   try {
-    console.log("Starting streaming speech-to-text conversion...");
-    console.log("Audio chunks received:", audioChunks.length);
-
     // Convert audio chunks to Buffer
     const chunks = [];
     for (const chunk of audioChunks) {
@@ -128,7 +110,6 @@ export const speechToTextStream = async (audioChunks) => {
 
     // Combine all chunks into a single buffer
     const audioBuffer = Buffer.concat(chunks);
-    console.log("Combined audio buffer size:", audioBuffer.length, "bytes");
 
     // Validate audio buffer
     validateAudioBuffer(audioBuffer);
@@ -139,12 +120,6 @@ export const speechToTextStream = async (audioChunks) => {
     });
 
     // Log audio details for debugging
-    console.log("Audio details for transcription:", {
-      originalSize: audioBuffer.length,
-      fileType: "webm",
-      fileName: audioFile.name,
-      fileSize: audioFile.size,
-    });
 
     // Transcribe using OpenAI Whisper with ULTRA-OPTIMIZED settings
     const transcription = await openai.audio.transcriptions.create({
@@ -156,14 +131,7 @@ export const speechToTextStream = async (audioChunks) => {
       prompt: "Transcribe exactly.", // Shorter prompt for faster processing
     });
 
-    console.log(
-      "Streaming speech-to-text successful:",
-      transcription.substring(0, 50) + "..."
-    );
-
     // Debug: Log full transcription for debugging
-    console.log("FULL TRANSCRIPTION:", transcription);
-    console.log("TRANSCRIPTION LENGTH:", transcription.length);
 
     return transcription;
   } catch (error) {
@@ -195,19 +163,11 @@ const analyzeTextLength = (text) => {
 // NEW: Split text into optimal chunks for parallel processing
 const splitTextDynamically = (text) => {
   const analysis = analyzeTextLength(text);
-  const wordsPerChunk = 15; // Optimized chunk size for better TTS performance
+  const wordsPerChunk = 10;
   const optimalChunks = Math.max(
     1,
     Math.ceil(analysis.wordCount / wordsPerChunk)
   );
-
-  console.log(`Text Analysis:`, {
-    totalWords: analysis.wordCount,
-    totalChars: analysis.charCount,
-    sentences: analysis.sentenceCount,
-    optimalChunks,
-    wordsPerChunk,
-  });
 
   // NEW: Simple and reliable text splitting
   const words = text.split(/\s+/);
@@ -222,35 +182,21 @@ const splitTextDynamically = (text) => {
     }
   }
 
-  console.log(
-    `Split into ${chunks.length} chunks:`,
-    chunks.map((chunk, i) => `Chunk ${i + 1}: "${chunk.substring(0, 50)}..."`)
-  );
-
   return chunks;
 };
 
 // NEW: Dynamic parallel TTS processing
 export const textToSpeechDynamic = async (text) => {
   try {
-    console.log("Starting dynamic parallel TTS processing...");
     const startTime = Date.now();
 
     // 1. Analyze text and calculate optimal chunks
     const chunks = splitTextDynamically(text);
-    console.log(` Text split into ${chunks.length} optimal chunks`);
 
     // 2. Process chunks in parallel with rate limiting
     const ttsPromises = chunks.map(async (chunk, index) => {
       // Add small delay to avoid rate limits
       await new Promise((resolve) => setTimeout(resolve, index * 50)); // Reduced delay from 100ms to 50ms
-
-      console.log(
-        `Processing chunk ${index + 1}/${chunks.length}: "${chunk.substring(
-          0,
-          50
-        )}..."`
-      );
 
       try {
         const speech = await openai.audio.speech.create({
@@ -261,7 +207,6 @@ export const textToSpeechDynamic = async (text) => {
         });
 
         const buffer = Buffer.from(await speech.arrayBuffer());
-        console.log(`Chunk ${index + 1} processed: ${buffer.length} bytes`);
 
         return {
           index,
@@ -285,12 +230,6 @@ export const textToSpeechDynamic = async (text) => {
     const combinedBuffer = Buffer.concat(results.map((r) => r.buffer));
 
     // NEW: Verify all chunks were processed
-    console.log(`Verification:`, {
-      originalChunks: chunks.length,
-      processedResults: results.length,
-      totalCombinedSize: combinedBuffer.length,
-      individualSizes: results.map((r) => r.size),
-    });
 
     // 6. Save file
     const fileName = `tts_dynamic_${Date.now()}_${Math.random()
@@ -301,12 +240,6 @@ export const textToSpeechDynamic = async (text) => {
 
     const endTime = Date.now();
     const processingTime = endTime - startTime;
-
-    console.log(`Dynamic TTS completed in ${processingTime}ms`);
-    console.log(
-      `${chunks.length} chunks processed, ${combinedBuffer.length} bytes total`
-    );
-    console.log(`Average time per chunk: ${processingTime / chunks.length}ms`);
 
     return {
       audioBuffer: combinedBuffer,

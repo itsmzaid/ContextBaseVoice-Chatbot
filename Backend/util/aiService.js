@@ -38,11 +38,9 @@ export const generateBotResponse = async (sessionId, userMessage) => {
     // NEW: Check cache first for instant response
     const cachedResponse = getCachedResponse(userMessage);
     if (cachedResponse) {
-      console.log("Cache hit - instant response!");
       return cachedResponse;
     }
 
-    console.log("Starting optimized bot response generation...");
     const startTime = Date.now();
 
     // Get session and agent information
@@ -80,17 +78,11 @@ export const generateBotResponse = async (sessionId, userMessage) => {
       generateResponseWithAI(userMessage, "", agent.prompt), // Start AI response immediately
     ]);
 
-    // If context found, enhance the response
-    let finalResponse = aiResponse;
-    if (relevantContext && relevantContext.trim()) {
-      finalResponse = `${aiResponse}\n\nBased on the available context: ${relevantContext.substring(
-        0,
-        200
-      )}`;
-    }
+    // Use AI response directly without automatically adding context
+    // Context is already used internally by the AI model for generating the response
+    const finalResponse = aiResponse;
 
     const endTime = Date.now();
-    console.log(`Bot response generated in ${endTime - startTime}ms`);
 
     // NEW: Cache the response for future use
     setCachedResponse(userMessage, finalResponse);
@@ -148,7 +140,7 @@ const generateResponseWithAI = async (userMessage, context, systemPrompt) => {
         role: "system",
         content:
           systemPrompt ||
-          "You are an AI assistant. Be concise, accurate, and provide answers based only on the provided context. Keep responses clear. Answer according to the information given, regardless of topic",
+          "You are an AI assistant. Provide accurate and helpful responses based on the available context. Be natural in your response length - if a question requires a detailed explanation, provide it. If it can be answered briefly, keep it concise. Always prioritize accuracy and completeness over brevity.",
       },
     ];
 
@@ -169,7 +161,7 @@ const generateResponseWithAI = async (userMessage, context, systemPrompt) => {
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo", // Faster model
       messages: messages,
-      max_tokens: 300, // Reduced for faster response
+      max_tokens: 1000, // Increased for more natural responses
       temperature: 0.3, // Lower temperature for faster, more consistent responses
       top_p: 0.9,
       frequency_penalty: 0,
@@ -228,14 +220,8 @@ const searchContext = async (userText, sessionId) => {
 // NEW: Combine response function
 const combineResponse = (contextResults, llmResponse) => {
   try {
-    // If we have context, use it to enhance the response
-    if (contextResults && contextResults.trim()) {
-      return `${llmResponse}\n\nBased on the available context: ${contextResults.substring(
-        0,
-        200
-      )}`;
-    }
-
+    // Return LLM response directly without adding context
+    // The context is already used internally by the AI model
     return llmResponse;
   } catch (error) {
     console.error("Error combining response:", error);
@@ -246,7 +232,6 @@ const combineResponse = (contextResults, llmResponse) => {
 // NEW: Optimized LLM response with faster models
 export const generateBotResponseOptimized = async (sessionId, userText) => {
   try {
-    console.log("Starting optimized LLM response generation...");
     const startTime = Date.now();
 
     // 1. Get context and LLM response in parallel
@@ -277,15 +262,16 @@ const generateFastLLMResponse = async (userText) => {
       messages: [
         {
           role: "system",
-          content: "Be concise and accurate. Keep responses under 50 words.",
+          content:
+            "Provide accurate and helpful responses. Be natural in length - detailed when needed, concise when appropriate. Prioritize completeness over brevity.",
         },
         {
           role: "user",
           content: userText,
         },
       ],
-      max_tokens: 80, // Reduced for faster response
-      temperature: 0.2, // Lower temperature for faster, more consistent responses
+      max_tokens: 100,
+      temperature: 0.2,
       top_p: 0.8,
       frequency_penalty: 0,
       presence_penalty: 0,
@@ -304,7 +290,6 @@ export const generateUltraFastResponse = async (sessionId, userText) => {
     // 1. Check cache first
     const cachedResponse = getCachedResponse(userText);
     if (cachedResponse) {
-      console.log("Cache hit - instant response!");
       return cachedResponse;
     }
 

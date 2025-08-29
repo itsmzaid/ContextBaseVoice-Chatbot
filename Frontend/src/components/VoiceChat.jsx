@@ -24,6 +24,10 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
 
+  // NEW: User message state
+  const [userMessage, setUserMessage] = useState("");
+  const [showUserMessage, setShowUserMessage] = useState(false);
+
   const wsRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -34,8 +38,8 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    // Direct WebSocket URL for local testing
-    const wsUrl = "ws://3afb8def0500.ngrok-free.app";
+    // Get WebSocket URL from environment variable
+    const wsUrl = import.meta.env.VITE_WEBSOCKET_URL;
 
     console.log("Connecting to WebSocket:", wsUrl);
     wsRef.current = new WebSocket(wsUrl);
@@ -93,6 +97,8 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
 
       case "transcription_complete":
         console.log("Transcription:", data.text);
+        setUserMessage(data.text);
+        setShowUserMessage(true);
         setIsProcessing(false);
         break;
 
@@ -103,6 +109,7 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
       case "bot_response":
         handleBotResponse(data);
         setIsProcessing(false);
+        setShowUserMessage(false); // Hide user message after bot responds
         break;
 
       case "no_speech_detected":
@@ -393,6 +400,17 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
         <div className="flex items-center gap-2 text-red-600 text-sm">
           <AlertCircle className="w-4 h-4" />
           {error}
+        </div>
+      )}
+
+      {/* NEW: User Message Display */}
+      {showUserMessage && userMessage && (
+        <div className="w-full max-w-md bg-blue-50 rounded-lg p-3 border border-blue-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Mic className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-800">You said:</span>
+          </div>
+          <p className="text-sm text-blue-700">{userMessage}</p>
         </div>
       )}
 

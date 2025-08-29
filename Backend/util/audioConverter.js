@@ -4,8 +4,6 @@ import path from "path";
 // Convert Int16Array audio buffer to WAV format
 export const convertAudioToWav = async (audioBuffer) => {
   try {
-    console.log("Converting audio buffer to WAV format...");
-
     // If buffer is already a Buffer, use it directly
     if (Buffer.isBuffer(audioBuffer)) {
       // Check if it's already WAV format
@@ -13,7 +11,6 @@ export const convertAudioToWav = async (audioBuffer) => {
         audioBuffer.length >= 4 &&
         audioBuffer.toString("ascii", 0, 4) === "RIFF"
       ) {
-        console.log("Audio is already in WAV format");
         return audioBuffer;
       }
 
@@ -73,9 +70,6 @@ function createWavFromPCM(pcmBuffer) {
   // Combine header and PCM data
   const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
 
-  console.log(
-    `WAV file created: ${wavBuffer.length} bytes, ${sampleRate}Hz, ${channels} channel(s)`
-  );
   return wavBuffer;
 }
 

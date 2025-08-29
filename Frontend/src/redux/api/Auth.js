@@ -5,7 +5,7 @@ import { axiosBaseQuery } from "../../utils/axios";
 export const authApi = createApi({
   reducerPath: "authApi",
   baseQuery: axiosBaseQuery({
-    baseUrl: import.meta.env.VITE_API_URL,
+    baseUrl: import.meta.env.VITE_API_BASE_URL,
   }),
   endpoints: (builder) => ({
     // Add your API endpoints here
