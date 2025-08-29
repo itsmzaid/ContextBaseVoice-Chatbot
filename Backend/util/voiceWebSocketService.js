@@ -63,14 +63,14 @@ class VoiceWebSocketService {
         }
       });
 
-      ws.on("close", () => {
-        console.log("WebSocket connection closed");
+      ws.on("close", (code, reason) => {
+        console.log(`WebSocket connection closed: ${code} - ${reason}`);
         this.cleanupClient(clientId);
       });
 
       ws.on("error", (error) => {
         console.error("WebSocket error:", error);
-        this.cleanupClient(clientId);
+        // Don't immediately cleanup on error, let the close event handle it
       });
     });
 
@@ -101,7 +101,7 @@ class VoiceWebSocketService {
         break;
 
       case "ping":
-        client.ws.send(JSON.stringify({ type: "pong" }));
+        client.ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
         break;
 
       default:
@@ -180,6 +180,13 @@ class VoiceWebSocketService {
   async handleAudioChunk(clientId, message) {
     const client = this.clients.get(clientId);
     if (!client || !client.isRecording) return;
+
+    // Check if WebSocket is still connected
+    if (client.ws.readyState !== 1) {
+      // 1 = WebSocket.OPEN
+      console.log("WebSocket not connected, skipping audio chunk");
+      return;
+    }
 
     try {
       // Add audio chunk to buffer
@@ -495,15 +502,22 @@ class VoiceWebSocketService {
 
       // Send bot response as audio
       const audioBase64 = audioBuffer.toString("base64");
-      client.ws.send(
-        JSON.stringify({
-          type: "bot_response",
-          text: botResponse,
-          audioData: audioBase64,
-          audioUrl: audioFilePath,
-          messageId: botMessage.id,
-        })
-      );
+
+      // Check if WebSocket is still connected before sending
+      if (client.ws.readyState === 1) {
+        // WebSocket.OPEN
+        client.ws.send(
+          JSON.stringify({
+            type: "bot_response",
+            text: botResponse,
+            audioData: audioBase64,
+            audioUrl: audioFilePath,
+            messageId: botMessage.id,
+          })
+        );
+      } else {
+        console.error("WebSocket not connected, cannot send bot response");
+      }
     } catch (error) {
       console.error("Error generating bot response:", error);
 
@@ -580,15 +594,22 @@ class VoiceWebSocketService {
 
       // Send bot response as audio
       const audioBase64 = audioResult.audioBuffer.toString("base64");
-      client.ws.send(
-        JSON.stringify({
-          type: "bot_response",
-          text: botResponse,
-          audioData: audioBase64,
-          audioUrl: audioResult.audioFilePath,
-          messageId: botMessage.id,
-        })
-      );
+
+      // Check if WebSocket is still connected before sending
+      if (client.ws.readyState === 1) {
+        // WebSocket.OPEN
+        client.ws.send(
+          JSON.stringify({
+            type: "bot_response",
+            text: botResponse,
+            audioData: audioBase64,
+            audioUrl: audioResult.audioFilePath,
+            messageId: botMessage.id,
+          })
+        );
+      } else {
+        console.error("WebSocket not connected, cannot send bot response");
+      }
 
       const totalTime = Date.now() - startTime;
       console.log(
@@ -675,6 +696,11 @@ class VoiceWebSocketService {
       // Clear logging session if this was the last client
       if (this.clients.size === 1) {
         try {
+          // Force save any pending logs before clearing session
+          if (loggingService.saveTimeout) {
+            clearTimeout(loggingService.saveTimeout);
+            loggingService.saveLogs();
+          }
           loggingService.currentSession = null;
           console.log("🧹 Logging session cleared");
         } catch (error) {

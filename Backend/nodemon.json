@@ -1,0 +1,30 @@
+{
+  "watch": [
+    "*.js",
+    "routes/",
+    "controller/",
+    "service/",
+    "middleware/",
+    "util/"
+  ],
+  "ignore": [
+    "storage/",
+    "temp/",
+    "node_modules/",
+    "*.log",
+    "*.json",
+    "storage/debug_audio/",
+    "storage/logs/",
+    "storage/audio/",
+    "storage/uploads/",
+    "logs/",
+    "*.log",
+    "log*.js",
+    "loggingService.js"
+  ],
+  "ext": "js,json",
+  "delay": 2000,
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

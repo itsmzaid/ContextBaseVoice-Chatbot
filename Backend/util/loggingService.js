@@ -25,6 +25,7 @@ class LoggingService {
   constructor() {
     this.logs = [];
     this.currentSession = null;
+    this.saveTimeout = null;
     this.ensureLogDirectory();
   }
 
@@ -116,7 +117,7 @@ class LoggingService {
     };
 
     this.logs.push(messageLog);
-    this.saveLogs();
+    this.scheduleSaveLogs();
   }
 
   calculateCost(modelName, inputTokens, outputTokens) {
@@ -145,6 +146,18 @@ class LoggingService {
     return inputCost + outputCost;
   }
 
+  scheduleSaveLogs() {
+    // Clear any existing timeout
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    // Schedule save after 5 seconds of inactivity
+    this.saveTimeout = setTimeout(() => {
+      this.saveLogs();
+    }, 5000);
+  }
+
   saveLogs() {
     try {
       const logDir = path.join(process.cwd(), "storage", "logs");
@@ -164,9 +177,18 @@ class LoggingService {
 
       // Clear current logs after saving
       this.logs = [];
+      this.saveTimeout = null;
     } catch (error) {
       console.error("Error saving logs:", error);
     }
+  }
+
+  // Force save logs immediately
+  forceSaveLogs() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    this.saveLogs();
   }
 
   getSessionLogs(sessionId) {
@@ -229,5 +251,16 @@ class LoggingService {
 
 // Create singleton instance
 const loggingService = new LoggingService();
+
+// Save logs on process exit
+process.on("SIGINT", () => {
+  loggingService.forceSaveLogs();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  loggingService.forceSaveLogs();
+  process.exit(0);
+});
 
 export default loggingService;

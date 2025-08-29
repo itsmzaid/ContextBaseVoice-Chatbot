@@ -34,12 +34,12 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
   const audioChunksRef = useRef([]);
   const streamRef = useRef(null);
 
-  // WebSocket connection with optimization
+  // WebSocket connection with optimization and auto-reconnect
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     // Get WebSocket URL from environment variable
-    const wsUrl = import.meta.env.VITE_WEBSOCKET_URL;
+    const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || "ws://localhost:5000";
 
     console.log("Connecting to WebSocket:", wsUrl);
     wsRef.current = new WebSocket(wsUrl);
@@ -51,6 +51,16 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
       setIsConnected(true);
       setConnectionStatus("connected");
       setError(null);
+
+      // Start session if we have a sessionId
+      if (sessionId) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: "start_session",
+            sessionId: sessionId,
+          })
+        );
+      }
     };
 
     wsRef.current.onmessage = (event) => {
@@ -62,11 +72,20 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
       }
     };
 
-    wsRef.current.onclose = () => {
-      console.log("WebSocket disconnected");
+    wsRef.current.onclose = (event) => {
+      console.log("WebSocket disconnected:", event.code, event.reason);
       setIsConnected(false);
       setConnectionStatus("disconnected");
       setIsRecording(false);
+
+      // Auto-reconnect after 2 seconds if not manually closed
+      if (event.code !== 1000) {
+        // Not a normal closure
+        setTimeout(() => {
+          console.log("Attempting to reconnect...");
+          connectWebSocket();
+        }, 2000);
+      }
     };
 
     wsRef.current.onerror = (error) => {
@@ -74,10 +93,10 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
       setError("Connection error");
       setConnectionStatus("error");
     };
-  }, []);
+  }, [sessionId]);
 
   // Handle WebSocket messages
-  const handleWebSocketMessage = (data) => {
+  const handleWebSocketMessage = async (data) => {
     switch (data.type) {
       case "connection_established":
         console.log("Voice connection established:", data.clientId);
@@ -104,12 +123,28 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
 
       case "generating_response":
         setIsProcessing(true);
+        // Set a timeout to clear processing state if it gets stuck
+        setTimeout(() => {
+          if (isProcessing) {
+            console.warn("Processing timeout - clearing state");
+            setIsProcessing(false);
+          }
+        }, 30000); // 30 seconds timeout
         break;
 
       case "bot_response":
-        handleBotResponse(data);
-        setIsProcessing(false);
-        setShowUserMessage(false); // Hide user message after bot responds
+        console.log("Processing bot response...");
+        try {
+          await handleBotResponse(data);
+          console.log("Bot response processed successfully");
+        } catch (error) {
+          console.error("Error in bot_response handler:", error);
+          setError("Failed to process bot response");
+        } finally {
+          // Always clear processing state
+          setIsProcessing(false);
+          setShowUserMessage(false); // Hide user message after bot responds
+        }
         break;
 
       case "no_speech_detected":
@@ -132,13 +167,26 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
   // Handle bot response
   const handleBotResponse = async (data) => {
     try {
+      console.log("Received bot response:", data);
+      console.log("Audio data length:", data.audioData?.length);
+
       // Convert base64 audio to blob
       const audioData = atob(data.audioData);
       const audioArray = new Uint8Array(audioData.length);
       for (let i = 0; i < audioData.length; i++) {
         audioArray[i] = audioData.charCodeAt(i);
       }
-      const audioBlob = new Blob([audioArray], { type: "audio/mp3" });
+
+      console.log("Audio array created, length:", audioArray.length);
+
+      // Create audio blob with proper format
+      const audioBlob = new Blob([audioArray], { type: "audio/mpeg" });
+      console.log(
+        "Audio blob created, size:",
+        audioBlob.size,
+        "type:",
+        audioBlob.type
+      );
 
       // Play audio with controls
       await playAudioWithControls(audioBlob);
@@ -156,12 +204,16 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
     } catch (error) {
       console.error("Error handling bot response:", error);
       setError("Error playing audio response");
+      throw error; // Re-throw to trigger error handling in the caller
     }
   };
 
   // NEW: Play audio with controls
   const playAudioWithControls = async (audioBlob) => {
     try {
+      console.log("Starting audio playback...");
+      console.log("Audio blob size:", audioBlob.size, "type:", audioBlob.type);
+
       // Stop any currently playing audio
       if (currentAudio) {
         currentAudio.pause();
@@ -169,10 +221,13 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
       }
 
       const audioUrl = URL.createObjectURL(audioBlob);
+      console.log("Audio URL created:", audioUrl);
+
       const audio = new Audio(audioUrl);
 
       // Set up audio event listeners
       audio.addEventListener("loadedmetadata", () => {
+        console.log("Audio metadata loaded, duration:", audio.duration);
         setAudioDuration(audio.duration);
         setAudioProgress(0);
       });
@@ -182,30 +237,50 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
       });
 
       audio.addEventListener("play", () => {
+        console.log("Audio started playing");
         setIsAudioPlaying(true);
       });
 
       audio.addEventListener("pause", () => {
+        console.log("Audio paused");
         setIsAudioPlaying(false);
       });
 
       audio.addEventListener("ended", () => {
+        console.log("Audio ended");
         setIsAudioPlaying(false);
         setAudioProgress(0);
         setCurrentAudio(null);
         URL.revokeObjectURL(audioUrl);
       });
 
+      audio.addEventListener("error", (e) => {
+        console.error("Audio error:", e);
+        console.error("Audio error details:", audio.error);
+        setError("Audio playback error");
+      });
+
       // Store current audio reference
       setCurrentAudio(audio);
 
-      // Auto-play the audio
-      await audio.play();
+      // Try to auto-play the audio
+      try {
+        console.log("Attempting to play audio...");
+        await audio.play();
+        console.log("Audio auto-play successful");
+      } catch (playError) {
+        console.warn("Auto-play failed:", playError);
+        console.warn("Auto-play failed, user interaction required:", playError);
+        // Show a message to user that they need to click play
+        setError("Click the play button to hear the response");
+        setTimeout(() => setError(null), 3000);
+      }
 
-      console.log("Audio started playing with controls");
+      console.log("Audio setup completed");
     } catch (error) {
       console.error("Error playing audio with controls:", error);
-      throw error;
+      setError("Failed to setup audio playback");
+      throw error; // Re-throw to trigger error handling
     }
   };
 
@@ -338,9 +413,17 @@ const VoiceChat = ({ sessionId, onMessageReceived }) => {
   useEffect(() => {
     connectWebSocket();
 
+    // Set up ping interval to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "ping" }));
+      }
+    }, 30000); // Ping every 30 seconds
+
     return () => {
+      clearInterval(pingInterval);
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(1000, "Component unmounting");
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());

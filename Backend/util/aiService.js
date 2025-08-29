@@ -141,7 +141,7 @@ const generateResponseWithAI = async (userMessage, context, systemPrompt) => {
         role: "system",
         content:
           systemPrompt ||
-          "You are an AI assistant. Provide accurate and helpful responses based on the available context. Be natural in your response length - if a question requires a detailed explanation, provide it. If it can be answered briefly, keep it concise. Always prioritize accuracy and completeness over brevity.",
+          "You are an AI assistant. Be concise, accurate, and provide answers based only on the provided context. Keep responses clear. Answer according to the information given, regardless of topic",
       },
     ];
 
@@ -162,9 +162,9 @@ const generateResponseWithAI = async (userMessage, context, systemPrompt) => {
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo", // Faster model
       messages: messages,
-      max_tokens: 1000, // Increased for more natural responses
+      max_tokens: 150, // Increased slightly for complete responses
       temperature: 0.3, // Lower temperature for faster, more consistent responses
-      top_p: 0.9,
+      top_p: 0.2,
       frequency_penalty: 0,
       presence_penalty: 0,
       stream: false,
@@ -285,14 +285,14 @@ const generateFastLLMResponse = async (userText) => {
         {
           role: "system",
           content:
-            "Provide accurate and helpful responses. Be natural in length - detailed when needed, concise when appropriate. Prioritize completeness over brevity.",
+            "Give complete answers in 2-3 short sentences. Never cut off mid-sentence. Always finish your response properly. Be direct and concise.",
         },
         {
           role: "user",
           content: userText,
         },
       ],
-      max_tokens: 100,
+      max_tokens: 120, // Increased slightly for complete responses
       temperature: 0.2,
       top_p: 0.8,
       frequency_penalty: 0,
