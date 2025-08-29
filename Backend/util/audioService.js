@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 import { validateAudioBuffer } from "./audioConverter.js";
+import loggingService from "./loggingService.js";
 dotenv.config();
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -33,6 +34,16 @@ export const textToSpeech = async (text) => {
     // Convert buffer to file
     const buffer = Buffer.from(await mp3.arrayBuffer());
     fs.writeFileSync(audioPath, buffer);
+
+    // Log TTS usage only if session is active
+    const cost = loggingService.calculateCost("tts-1-hd", text.length, 0); // TTS cost based on input characters
+    if (loggingService.currentSession) {
+      loggingService.logModelUsage("tts", "tts-1-hd", text.length, 0, cost, {
+        textLength: text.length,
+        audioBufferSize: buffer.length,
+        audioDuration: buffer.length / 16000, // Approximate duration in seconds
+      });
+    }
 
     // Return both the audio buffer and the URL path
     const audioUrl = `/storage/audio/${fileName}`;
@@ -67,6 +78,9 @@ export const speechToText = async (audioInput) => {
     // Create a proper File object for OpenAI
     const file = new File([audioBuffer], fileName, { type: mimeType });
 
+    // Calculate audio duration for cost estimation
+    const audioDuration = audioBuffer.length / 16000; // Approximate duration in seconds
+
     // Transcribe audio using OpenAI Whisper with optimized settings
     const transcription = await openai.audio.transcriptions.create({
       file: file,
@@ -77,6 +91,26 @@ export const speechToText = async (audioInput) => {
       prompt:
         "This is a clear English conversation. Please transcribe exactly what is spoken without adding or removing words.",
     });
+
+    // Log STT usage only if session is active
+    const cost = loggingService.calculateCost(
+      "whisper-1",
+      audioDuration / 60, // Convert to minutes for cost calculation
+      0
+    );
+    if (loggingService.currentSession) {
+      loggingService.logModelUsage(
+        "stt",
+        "whisper-1",
+        audioDuration / 60, // Store minutes in inputTokens field
+        0,
+        cost,
+        {
+          audioDuration,
+          transcriptionLength: transcription.length,
+        }
+      );
+    }
 
     return transcription;
   } catch (error) {

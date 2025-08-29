@@ -7,6 +7,7 @@ import {
 import { generateBotResponse, generateUltraFastResponse } from "./aiService.js";
 import { sequelize } from "../models/index.js";
 import { ApiError } from "./ApiError.js";
+import loggingService from "./loggingService.js";
 
 class VoiceWebSocketService {
   constructor() {
@@ -116,18 +117,47 @@ class VoiceWebSocketService {
       const { sessionId } = message;
 
       // Verify session exists and is active
-      const session = await sequelize.models.Session.findByPk(sessionId);
+      const session = await sequelize.models.Session.findByPk(sessionId, {
+        include: [
+          {
+            model: sequelize.models.Agent,
+            as: "agent",
+          },
+        ],
+      });
       if (!session) {
         throw new Error("Session not found");
       }
       if (session.ended_at) {
         throw new Error("Session is already ended");
       }
+      if (!session.agent) {
+        throw new Error("Session agent not found");
+      }
 
       client.sessionId = sessionId;
       client.isRecording = true;
       client.audioChunks = [];
       client.textBuffer = "";
+
+      // Start logging session
+      console.log("Session data:", {
+        sessionId: session.id,
+        agentId: session.agent_id,
+        userId: session.agent.user_id,
+      });
+
+      // Start logging session with proper error handling
+      try {
+        loggingService.startSession(
+          sessionId,
+          session.agent.user_id,
+          session.agent_id
+        );
+        console.log("✅ Logging session started successfully");
+      } catch (error) {
+        console.error("❌ Error starting logging session:", error);
+      }
 
       client.ws.send(
         JSON.stringify({
@@ -303,6 +333,18 @@ class VoiceWebSocketService {
     const client = this.clients.get(clientId);
     if (!client || client.audioChunks.length === 0) return;
 
+    // Validate session exists before processing
+    if (!client.sessionId) {
+      console.error("❌ No session ID found for client:", clientId);
+      client.ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "No active session found. Please start a new session.",
+        })
+      );
+      return;
+    }
+
     try {
       // Send processing status
       client.ws.send(
@@ -443,6 +485,14 @@ class VoiceWebSocketService {
         audio_url: audioFilePath,
       });
 
+      // Log complete message with all model usage
+      loggingService.logMessage(
+        botMessage.id,
+        userText,
+        botResponse,
+        processingTime
+      );
+
       // Send bot response as audio
       const audioBase64 = audioBuffer.toString("base64");
       client.ws.send(
@@ -514,6 +564,19 @@ class VoiceWebSocketService {
         text: botResponse,
         audio_url: audioResult.audioFilePath,
       });
+
+      // Log complete message with all model usage
+      try {
+        loggingService.logMessage(
+          botMessage.id,
+          userText,
+          botResponse,
+          audioResult.processingTime
+        );
+        console.log("✅ Message logged successfully");
+      } catch (error) {
+        console.error("❌ Error logging message:", error);
+      }
 
       // Send bot response as audio
       const audioBase64 = audioResult.audioBuffer.toString("base64");
@@ -608,6 +671,17 @@ class VoiceWebSocketService {
     const client = this.clients.get(clientId);
     if (client) {
       this.clearSilenceTimer(clientId);
+
+      // Clear logging session if this was the last client
+      if (this.clients.size === 1) {
+        try {
+          loggingService.currentSession = null;
+          console.log("🧹 Logging session cleared");
+        } catch (error) {
+          console.error("Error clearing logging session:", error);
+        }
+      }
+
       this.clients.delete(clientId);
     }
   }

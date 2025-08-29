@@ -97,7 +97,8 @@ export const getSessionMessages = async (sessionId) => {
 
     if (!session) {
       console.log(`Session not found: ${sessionId}`);
-      throw new ApiError(404, `Session not found with ID: ${sessionId}`);
+      // Return empty array instead of throwing error for better UX
+      return [];
     }
 
     // Then get messages separately with proper ordering
@@ -109,13 +110,8 @@ export const getSessionMessages = async (sessionId) => {
     return messages;
   } catch (error) {
     console.error(`Error fetching session messages for ${sessionId}:`, error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(
-      500,
-      `Failed to fetch session messages: ${error.message}`
-    );
+    // Return empty array on any error for better UX
+    return [];
   }
 };
 

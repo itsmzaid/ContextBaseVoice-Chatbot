@@ -6,6 +6,7 @@ import {
   createQueryEmbedding,
   findSimilarEmbeddings,
 } from "./embeddingService.js";
+import loggingService from "./loggingService.js";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -169,6 +170,27 @@ const generateResponseWithAI = async (userMessage, context, systemPrompt) => {
       stream: false,
     });
 
+    // Log LLM usage
+    const usage = response.usage;
+    const cost = loggingService.calculateCost(
+      "gpt-3.5-turbo",
+      usage.prompt_tokens,
+      usage.completion_tokens
+    );
+    if (loggingService.currentSession) {
+      loggingService.logModelUsage(
+        "llm",
+        "gpt-3.5-turbo",
+        usage.prompt_tokens,
+        usage.completion_tokens,
+        cost,
+        {
+          totalTokens: usage.total_tokens,
+          model: "gpt-3.5-turbo",
+        }
+      );
+    }
+
     return response.choices[0].message.content;
   } catch (error) {
     console.error("Error generating AI response:", error);
@@ -276,6 +298,27 @@ const generateFastLLMResponse = async (userText) => {
       frequency_penalty: 0,
       presence_penalty: 0,
     });
+
+    // Log LLM usage only if session is active
+    const usage = response.usage;
+    const cost = loggingService.calculateCost(
+      "gpt-4o-mini",
+      usage.prompt_tokens,
+      usage.completion_tokens
+    );
+    if (loggingService.currentSession) {
+      loggingService.logModelUsage(
+        "llm",
+        "gpt-4o-mini",
+        usage.prompt_tokens,
+        usage.completion_tokens,
+        cost,
+        {
+          totalTokens: usage.total_tokens,
+          model: "gpt-4o-mini",
+        }
+      );
+    }
 
     return response.choices[0].message.content;
   } catch (error) {

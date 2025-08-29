@@ -36,7 +36,13 @@ export const getSessionMessagesHandler = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, messages, "Session messages fetched successfully")
+      new ApiResponse(
+        200,
+        messages,
+        messages.length > 0
+          ? "Session messages fetched successfully"
+          : "No messages found for this session"
+      )
     );
 });
 
